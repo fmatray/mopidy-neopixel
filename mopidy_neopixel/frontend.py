@@ -24,12 +24,10 @@ class NeoPixelThread(threading.Thread):
         if self.nb_leds == 0:
             raise exceptions.FrontendError(f"NeoPixel startup failed: nb_leds must be at least 1")
 
-        pins = {
-                10: board.D10,
+        pins = {10: board.D10,
                 12: board.D12,
                 18: board.D18,
-                21: board.D21,
-        }
+                21: board.D21 }
         try: 
             self.pixels = neopixel.NeoPixel(pins[self.pin], self.nb_leds)
             self.pixels.fill((255, 0, 0))
@@ -45,21 +43,24 @@ class NeoPixelThread(threading.Thread):
         self.pixels.fill((0, 0, 0))
         self._stop.set()
 
+    def rainbow_wheel(self, current_track, led):
+        length = current_track.length
+        position = self.core.playback.get_time_position().get()
+        brightness = self.core.mixer.get_volume().get()/100 if not self.core.mixer.get_mute().get() else 0   
+
+        red, green, blue = colorsys.hsv_to_rgb(position/length, 1, brightness)
+        self.pixels[led] = tuple(map(int, (red * 255, green * 255, blue * 255)))
+
     def run(self):
         led = 0
         while not self._stop.isSet():
             current_track = self.core.playback.get_current_track().get()
             if current_track and self.core.playback.get_state().get() == PlaybackState.PLAYING:
-                length = current_track.length
-                position = self.core.playback.get_time_position().get()
-                brightness = self.core.mixer.get_volume().get()/100 if not self.core.mixer.get_mute().get() else 0   
-
-                red, green, blue = colorsys.hsv_to_rgb(position/length, 1, brightness)
-                self.pixels[led] = tuple(map(int, (red * 255, green * 255, blue * 255)))
+                self.rainbow_wheel(current_track, led)
                 led = (led + 1) % self.pixels.n 
             else:
                 self.pixels.fill((0, 0, 0))
-            sleep(0.01)
+            sleep(1/50)
 
 class NeoPixelFrontend(pykka.ThreadingActor, core.CoreListener):
     def __init__(self, config, core):
