@@ -7,7 +7,7 @@ from time import sleep
 from mopidy import core
 from mopidy.audio import PlaybackState
 
-from PIL import Image
+from colorthief import ColorThief
 from urllib import request
 
 import pykka
@@ -85,17 +85,11 @@ class NeoPixelThread(threading.Thread):
         logger.info(images)
         image_uri = images[self.current_track.uri][0].uri
         if image_uri.startswith("http://") or image_uri.startswith("https://"):
-            image = Image.open(request.urlopen(image_uri)) 
+            image = ColorThief(request.urlopen(image_uri)) 
         else:
-            image = Image.open(image_uri)
+            image = ColorThief(image_uri)
         
-        image = image.resize((150, 150), resample=0)
-        colors = image.getcolors(150*150) 
-        # filter all black and white colors
-        colors = filter(lambda x: not(x[1][0] < 10 and x[1][1] < 10 and x[1][2] < 10), colors)
-        colors = filter(lambda x: not(x[1][0] > 245 and x[1][1] > 245 and x[1][2] > 245), colors)
-        colors = sorted(colors, key=lambda x: x[0], reverse=True)
-        self.dominant_color = colors[0][1][:3]
+        self.dominant_color = image.get_color(quality=1)
 
         logger.info("Updated: %s", self.dominant_color)
     

@@ -25,7 +25,8 @@ setup(
         'Mopidy >= 0.14',
         'Pykka >= 1.1',
         'rpi_ws281x',
-        'adafruit-circuitpython-neopixel'
+        'adafruit-circuitpython-neopixel',
+        'colorthief'
     ],
     entry_points={
         'mopidy.ext': [
