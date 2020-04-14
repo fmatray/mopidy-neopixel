@@ -6,6 +6,10 @@ from time import sleep
 
 from mopidy import core
 from mopidy.audio import PlaybackState
+
+from PIL import Image
+from urllib import request
+
 import pykka
 import board
 import neopixel
@@ -18,7 +22,9 @@ class NeoPixelThread(threading.Thread):
         self.name = "NeoPixel Thread"
         self.core = core
         self.pin, self.nb_leds = pin, nb_leds
-
+        
+        self.current_track = None
+        self.dominant_color = None
         self._stop = threading.Event()
 
         if self.nb_leds == 0:
@@ -39,28 +45,64 @@ class NeoPixelThread(threading.Thread):
         except KeyError as exc:
             raise exceptions.FrontendError(f"NeoPixel startup failed: {exc}")
 
-    def stop(self):
-        self.pixels.fill((0, 0, 0))
-        self._stop.set()
-
-    def rainbow_wheel(self, current_track, led):
-        length = current_track.length
-        position = self.core.playback.get_time_position().get()
-        brightness = self.core.mixer.get_volume().get()/100 if not self.core.mixer.get_mute().get() else 0   
-
-        red, green, blue = colorsys.hsv_to_rgb(position/length, 1, brightness)
-        self.pixels[led] = tuple(map(int, (red * 255, green * 255, blue * 255)))
-
     def run(self):
         led = 0
         while not self._stop.isSet():
-            current_track = self.core.playback.get_current_track().get()
-            if current_track and self.core.playback.get_state().get() == PlaybackState.PLAYING:
-                self.rainbow_wheel(current_track, led)
+            if self.current_track and self.core.playback.get_state().get() == PlaybackState.PLAYING:
+                if self.dominant_color:
+                    self.pixels[led] = self.dominant_color
+                else:
+                    self.rainbow_wheel(led)
                 led = (led + 1) % self.pixels.n 
             else:
                 self.pixels.fill((0, 0, 0))
             sleep(1/50)
+
+    def rainbow_wheel(self, led):
+        length = self.current_track.length
+        position = self.core.playback.get_time_position().get()
+        
+        if length and position:
+            red, green, blue = colorsys.hsv_to_rgb(position/length, 1, 1)
+            self.pixels[led] = tuple(map(int, (red * 255, green * 255, blue * 255)))
+
+    def update_volume(self):
+        self.pixels.brightness = self.core.mixer.get_volume().get()/100 if not self.core.mixer.get_mute().get() else 0    
+
+    def update_track(self):
+        logger.info("Updating...")
+        self.dominant_color = None
+        self.current_track = self.core.playback.get_current_track().get()
+        if not self.current_track:
+            logger.info("No current track")
+            return
+
+        images = self.core.library.get_images([self.current_track.uri]).get()
+        if not images:
+            logger.info("Image not found")
+            return
+
+        logger.info(images)
+        image_uri = images[self.current_track.uri][0].uri
+        if image_uri.startswith("http://") or image_uri.startswith("https://"):
+            image = Image.open(request.urlopen(image_uri)) 
+        else:
+            image = Image.open(image_uri)
+        
+        image = image.resize((150, 150), resample=0)
+        colors = image.getcolors(150*150) 
+        # filter all black and white colors
+        colors = filter(lambda x: not(x[1][0] < 10 and x[1][1] < 10 and x[1][2] < 10), colors)
+        colors = filter(lambda x: not(x[1][0] > 245 and x[1][1] > 245 and x[1][2] > 245), colors)
+        colors = sorted(colors, key=lambda x: x[0], reverse=True)
+        self.dominant_color = colors[0][1][:3]
+
+        logger.info("Updated: %s", self.dominant_color)
+    
+    def stop(self):
+        self.pixels.fill((0, 0, 0))
+        self._stop.set()
+
 
 class NeoPixelFrontend(pykka.ThreadingActor, core.CoreListener):
     def __init__(self, config, core):
@@ -76,3 +118,9 @@ class NeoPixelFrontend(pykka.ThreadingActor, core.CoreListener):
     def on_stop(self):
         logger.info("Stoping Mopidy NeoPixel")
         self.neopixelthread.stop()
+
+    def on_event(self, event, **kwargs):
+        if event in ["track_playback_started", "track_playback_ended"]:
+            self.neopixelthread.update_track()
+        elif event in ["volume_changed", "mute_changed"]:
+            self.neopixelthread.update_volume()
