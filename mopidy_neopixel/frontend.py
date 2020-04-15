@@ -89,16 +89,16 @@ class NeoPixelThread(threading.Thread):
         self.pixels.brightness = self.core.mixer.get_volume().get()/100 if not self.core.mixer.get_mute().get() else 0    
 
     def update_track(self):
-        logger.info("Updating...")
+        logger.debug("Updating...")
         self.palette = None
         self.current_track = self.core.playback.get_current_track().get()
         if not self.current_track:
-            logger.info("No current track")
+            logger.debug("No current track")
             return
 
         images = self.core.library.get_images([self.current_track.uri]).get()
         if not images:
-            logger.info("Image not found")
+            logger.debug"Image not found")
             return
 
         logger.info(images)
@@ -112,7 +112,7 @@ class NeoPixelThread(threading.Thread):
         self.update_volume()
         self.pixels.fill(self.palette[0])
 
-        logger.info("Updated: %s", self.palette)
+        logger.debug("Updated: %s", self.palette)
     
     def stop(self):
         self.pixels.fill((0, 0, 0))
