@@ -15,11 +15,12 @@ setup(
     license='Apache License, Version 2.0',
     author='Frédéric Matray-Marin',
     author_email='frederic.matray@me.com',
-    description='You can always add leds :-)',
+    description='You can always add leds to a mopidy player :-)',
     long_description=open('README.rst').read(),
     packages=find_packages(exclude=['tests', 'tests.*']),
     zip_safe=False,
     include_package_data=True,
+    keywords = ['Mopidy', 'Mopidy-frontend', 'Neopixels'],
     install_requires=[
         'setuptools',
         'Mopidy >= 0.14',
