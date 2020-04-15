@@ -24,7 +24,7 @@ class NeoPixelThread(threading.Thread):
         self.pin, self.nb_leds = pin, nb_leds
         
         self.current_track = None
-        self.dominant_color = None
+        self.palette = None
         self._stop = threading.Event()
 
         if self.nb_leds == 0:
@@ -42,20 +42,39 @@ class NeoPixelThread(threading.Thread):
             sleep(1)
             self.pixels.fill((0, 0, 255))
             sleep(1)
+            self.pixels.fill((0, 0, 0))
         except KeyError as exc:
             raise exceptions.FrontendError(f"NeoPixel startup failed: {exc}")
+
+    def calculate_target(self, value, target): 
+        offset = 1 if abs(target-value) < 10 else 3
+        if value < target:
+            return value + offset
+        elif value > target:
+            return value - offset
+        return value
 
     def run(self):
         led = 0
         while not self._stop.isSet():
             if self.current_track and self.core.playback.get_state().get() == PlaybackState.PLAYING:
-                if self.dominant_color:
-                    self.pixels[led] = self.dominant_color
+                if self.palette:
+                    pos = self.core.playback.get_time_position().get() % 100
+                    if pos <= 70:
+                        target = self.palette[0] 
+                    elif pos <= 95:
+                        target = self.palette[1] 
+                    else:
+                        target = self.palette[2] 
+                    while self.pixels[led] != target: 
+                        self.pixels[led] = (self.calculate_target(self.pixels[led][0], target[0]),
+                                            self.calculate_target(self.pixels[led][1], target[1]),
+                                            self.calculate_target(self.pixels[led][2], target[2]))
                 else:
                     self.rainbow_wheel(led)
                 led = (led + 1) % self.pixels.n 
             else:
-                self.pixels.fill((0, 0, 0))
+                self.pixels.brightness = 0 
             sleep(1/50)
 
     def rainbow_wheel(self, led):
@@ -71,7 +90,7 @@ class NeoPixelThread(threading.Thread):
 
     def update_track(self):
         logger.info("Updating...")
-        self.dominant_color = None
+        self.palette = None
         self.current_track = self.core.playback.get_current_track().get()
         if not self.current_track:
             logger.info("No current track")
@@ -89,9 +108,11 @@ class NeoPixelThread(threading.Thread):
         else:
             image = ColorThief(image_uri)
         
-        self.dominant_color = image.get_color(quality=1)
+        self.palette = image.get_palette(color_count=2, quality=1)
+        self.update_volume()
+        self.pixels.fill(self.palette[0])
 
-        logger.info("Updated: %s", self.dominant_color)
+        logger.info("Updated: %s", self.palette)
     
     def stop(self):
         self.pixels.fill((0, 0, 0))
@@ -116,5 +137,5 @@ class NeoPixelFrontend(pykka.ThreadingActor, core.CoreListener):
     def on_event(self, event, **kwargs):
         if event in ["track_playback_started", "track_playback_ended"]:
             self.neopixelthread.update_track()
-        elif event in ["volume_changed", "mute_changed"]:
+        elif event in ["volume_changed", "mute_changed", "track_playback_paused", "track_playback_resumed"]:
             self.neopixelthread.update_volume()
