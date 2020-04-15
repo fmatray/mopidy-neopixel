@@ -14,7 +14,7 @@ Mopidy-NeoPixel
     :target: https://codecov.io/gh/fmatray/mopidy-neopixel
     :alt: Test coverage
 
-We always can add leds
+We always can add leds to mopidy players.
 
 
 Installation
@@ -33,9 +33,19 @@ Configuration
 Before starting Mopidy, you must add configuration for
 Mopidy-NeoPixel to your Mopidy configuration file::
 
-    [neopixel]
-    # TODO: Add example of extension config
+   [neopixel]
+   enabled = true
+   #Led Pin. You can only use pins 10, 12, 18 or 21
+   pin = 12
+   # Number of leds
+   nb_leds = 7
 
+Limitations
+===========
+
+Mopidy MUST run as root to have access to /dev/mem. 
+As long as you don't use this plugin to rule a sattelite or a WMD, it should be ok :-)
+Keep this for a small personnal project.
 
 Project resources
 =================
