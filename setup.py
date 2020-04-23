@@ -20,7 +20,7 @@ setup(
     packages=find_packages(exclude=['tests', 'tests.*']),
     zip_safe=False,
     include_package_data=True,
-    download_url='https://github.com/fmatray/mopidy-neopixel/archive/0.1.0.zip',
+    download_url='https://github.com/fmatray/mopidy-neopixel/archive/0.1.1.zip',
     keywords=['Mopidy', 'Mopidy-frontend', 'Neopixels'],
     install_requires=[
         'setuptools',
