@@ -98,7 +98,7 @@ class NeoPixelThread(threading.Thread):
 
         images = self.core.library.get_images([self.current_track.uri]).get()
         if not images:
-            logger.debug"Image not found")
+            logger.debug("Image not found")
             return
 
         logger.info(images)
